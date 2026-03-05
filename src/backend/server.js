@@ -8,8 +8,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from dist folder for web app
-app.use(express.static(path.join(__dirname, '../../dist')));
+// Health check / root route
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Stock Management API is running' });
+});
 
 // ============== AUTHENTICATION ==============
 app.post('/api/auth/register', async (req, res) => {
@@ -424,11 +426,6 @@ app.get('/api/dashboard/stats', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-});
-
-// Catch-all route for SPA
-app.get('/{*splat}', (req, res) => {
-  res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 module.exports = app;
