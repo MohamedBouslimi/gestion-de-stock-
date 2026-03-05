@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const API_BASE = 'http://localhost:3001/api';
+// Use relative path for production, full URL for development
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
 
 // Fonctions d'aide API
 const api = {
@@ -41,23 +42,181 @@ const translateType = (type) => {
   }
 };
 
+// Composant Login
+function Login({ onLogin, onSwitchToRegister }) {
+  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    
+    try {
+      const result = await api.post('/auth/login', formData);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        localStorage.setItem('user', JSON.stringify(result.user));
+        onLogin(result.user);
+      }
+    } catch (err) {
+      setError('Erreur de connexion au serveur');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="auth-container">
+      <div className="auth-box">
+        <h2>📦 Gestion de Stock</h2>
+        <h3>Connexion</h3>
+        {error && <div className="error-message">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Nom d'utilisateur</label>
+            <input 
+              type="text" 
+              value={formData.username} 
+              onChange={e => setFormData({...formData, username: e.target.value})} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Mot de passe</label>
+            <input 
+              type="password" 
+              value={formData.password} 
+              onChange={e => setFormData({...formData, password: e.target.value})} 
+              required 
+            />
+          </div>
+          <button type="submit" className="btn-primary full-width" disabled={loading}>
+            {loading ? 'Connexion...' : 'Se connecter'}
+          </button>
+        </form>
+        <p className="auth-switch">
+          Pas de compte ? <span onClick={onSwitchToRegister}>S'inscrire</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Composant Register
+function Register({ onRegister, onSwitchToLogin }) {
+  const [formData, setFormData] = useState({ username: '', email: '', password: '', confirmPassword: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    if (formData.password !== formData.confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const result = await api.post('/auth/register', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password
+      });
+      if (result.error) {
+        setError(result.error);
+      } else {
+        onSwitchToLogin();
+      }
+    } catch (err) {
+      setError('Erreur de connexion au serveur');
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="auth-container">
+      <div className="auth-box">
+        <h2>📦 Gestion de Stock</h2>
+        <h3>Inscription</h3>
+        {error && <div className="error-message">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label>Nom d'utilisateur</label>
+            <input 
+              type="text" 
+              value={formData.username} 
+              onChange={e => setFormData({...formData, username: e.target.value})} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input 
+              type="email" 
+              value={formData.email} 
+              onChange={e => setFormData({...formData, email: e.target.value})} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Mot de passe</label>
+            <input 
+              type="password" 
+              value={formData.password} 
+              onChange={e => setFormData({...formData, password: e.target.value})} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Confirmer le mot de passe</label>
+            <input 
+              type="password" 
+              value={formData.confirmPassword} 
+              onChange={e => setFormData({...formData, confirmPassword: e.target.value})} 
+              required 
+            />
+          </div>
+          <button type="submit" className="btn-primary full-width" disabled={loading}>
+            {loading ? 'Inscription...' : 'S\'inscrire'}
+          </button>
+        </form>
+        <p className="auth-switch">
+          Déjà un compte ? <span onClick={onSwitchToLogin}>Se connecter</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // Composant Tableau de Bord
 function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadStats();
   }, []);
 
-  const loadStats = async () => {
+  const loadStats = async (search = '') => {
     try {
-      const data = await api.get('/dashboard/stats');
+      const url = search ? `/dashboard/stats?search=${encodeURIComponent(search)}` : '/dashboard/stats';
+      const data = await api.get(url);
       setStats(data);
     } catch (error) {
       console.error('Échec du chargement des statistiques:', error);
     }
     setLoading(false);
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    loadStats(searchTerm);
   };
 
   if (loading) return <div className="loading">Chargement...</div>;
@@ -91,14 +250,26 @@ function Dashboard() {
 
       <div className="dashboard-sections">
         <div className="section">
-          <h3>Mouvements Récents</h3>
+          <div className="section-header">
+            <h3>Mouvements Récents</h3>
+            <form onSubmit={handleSearch} className="search-form-inline">
+              <input 
+                type="text" 
+                placeholder="Rechercher mouvements..." 
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+              <button type="submit" className="btn-search">🔍</button>
+            </form>
+          </div>
           <table>
             <thead>
               <tr>
                 <th>Produit</th>
                 <th>Type</th>
                 <th>Quantité</th>
-                <th>Date</th>
+                <th>Date Mouvement</th>
+                <th>Créé le</th>
               </tr>
             </thead>
             <tbody>
@@ -107,6 +278,7 @@ function Dashboard() {
                   <td>{m.product_name}</td>
                   <td><span className={`badge ${m.type}`}>{translateType(m.type)}</span></td>
                   <td>{m.quantity}</td>
+                  <td>{m.date_mouvement ? new Date(m.date_mouvement).toLocaleDateString('fr-FR') : '-'}</td>
                   <td>{new Date(m.created_at).toLocaleDateString('fr-FR')}</td>
                 </tr>
               ))}
@@ -146,9 +318,10 @@ function Products() {
   const [categories, setCategories] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     name: '', description: '', sku: '', category_id: '', 
-    quantity: 0, min_quantity: 0, price: 0, cost_price: 0
+    quantity: 0, min_quantity: 0, price: 0, cost_price: 0, date_achat: ''
   });
 
   useEffect(() => {
@@ -156,14 +329,20 @@ function Products() {
     loadCategories();
   }, []);
 
-  const loadProducts = async () => {
-    const data = await api.get('/products');
+  const loadProducts = async (search = '') => {
+    const url = search ? `/products?search=${encodeURIComponent(search)}` : '/products';
+    const data = await api.get(url);
     setProducts(data);
   };
 
   const loadCategories = async () => {
     const data = await api.get('/categories');
     setCategories(data);
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    loadProducts(searchTerm);
   };
 
   const handleSubmit = async (e) => {
@@ -175,20 +354,23 @@ function Products() {
     }
     setShowForm(false);
     setEditingProduct(null);
-    setFormData({ name: '', description: '', sku: '', category_id: '', quantity: 0, min_quantity: 0, price: 0, cost_price: 0 });
-    loadProducts();
+    setFormData({ name: '', description: '', sku: '', category_id: '', quantity: 0, min_quantity: 0, price: 0, cost_price: 0, date_achat: '' });
+    loadProducts(searchTerm);
   };
 
   const handleEdit = (product) => {
     setEditingProduct(product);
-    setFormData(product);
+    setFormData({
+      ...product,
+      date_achat: product.date_achat || ''
+    });
     setShowForm(true);
   };
 
   const handleDelete = async (id) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
       await api.delete(`/products/${id}`);
-      loadProducts();
+      loadProducts(searchTerm);
     }
   };
 
@@ -196,9 +378,20 @@ function Products() {
     <div className="products">
       <div className="page-header">
         <h2>Produits</h2>
-        <button className="btn-primary" onClick={() => { setShowForm(true); setEditingProduct(null); setFormData({ name: '', description: '', sku: '', category_id: '', quantity: 0, min_quantity: 0, price: 0, cost_price: 0 }); }}>
-          + Ajouter un Produit
-        </button>
+        <div className="header-actions">
+          <form onSubmit={handleSearch} className="search-form">
+            <input 
+              type="text" 
+              placeholder="Rechercher produits..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            <button type="submit" className="btn-search">🔍</button>
+          </form>
+          <button className="btn-primary" onClick={() => { setShowForm(true); setEditingProduct(null); setFormData({ name: '', description: '', sku: '', category_id: '', quantity: 0, min_quantity: 0, price: 0, cost_price: 0, date_achat: '' }); }}>
+            + Ajouter un Produit
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -238,6 +431,10 @@ function Products() {
                   <label>Prix d'Achat</label>
                   <input type="number" step="0.01" value={formData.cost_price} onChange={e => setFormData({...formData, cost_price: parseFloat(e.target.value) || 0})} />
                 </div>
+                <div className="form-group">
+                  <label>Date d'Achat</label>
+                  <input type="date" value={formData.date_achat} onChange={e => setFormData({...formData, date_achat: e.target.value})} />
+                </div>
                 <div className="form-group full-width">
                   <label>Description</label>
                   <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
@@ -260,6 +457,7 @@ function Products() {
             <th>Catégorie</th>
             <th>Quantité</th>
             <th>Prix</th>
+            <th>Date d'Achat</th>
             <th>Valeur</th>
             <th>Actions</th>
           </tr>
@@ -272,6 +470,7 @@ function Products() {
               <td>{product.category_name}</td>
               <td>{product.quantity}</td>
               <td>{product.price.toFixed(2)} DT</td>
+              <td>{product.date_achat ? new Date(product.date_achat).toLocaleDateString('fr-FR') : '-'}</td>
               <td>{(product.quantity * product.price).toFixed(2)} DT</td>
               <td>
                 <button className="btn-icon" onClick={() => handleEdit(product)}>✏️</button>
@@ -504,15 +703,18 @@ function StockMovements() {
   const [movements, setMovements] = useState([]);
   const [products, setProducts] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({ product_id: '', type: 'in', quantity: 0, reason: '', reference: '' });
+  const [editingMovement, setEditingMovement] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [formData, setFormData] = useState({ product_id: '', type: 'in', quantity: 0, reason: '', reference: '', date_mouvement: '' });
 
   useEffect(() => {
     loadMovements();
     loadProducts();
   }, []);
 
-  const loadMovements = async () => {
-    const data = await api.get('/movements');
+  const loadMovements = async (search = '') => {
+    const url = search ? `/movements?search=${encodeURIComponent(search)}` : '/movements';
+    const data = await api.get(url);
     setMovements(data);
   };
 
@@ -521,28 +723,70 @@ function StockMovements() {
     setProducts(data);
   };
 
+  const handleSearch = (e) => {
+    e.preventDefault();
+    loadMovements(searchTerm);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await api.post('/movements', formData);
+    if (editingMovement) {
+      await api.put(`/movements/${editingMovement.id}`, formData);
+    } else {
+      await api.post('/movements', formData);
+    }
     setShowForm(false);
-    setFormData({ product_id: '', type: 'in', quantity: 0, reason: '', reference: '' });
-    loadMovements();
+    setEditingMovement(null);
+    setFormData({ product_id: '', type: 'in', quantity: 0, reason: '', reference: '', date_mouvement: '' });
+    loadMovements(searchTerm);
     loadProducts();
+  };
+
+  const handleEdit = (movement) => {
+    setEditingMovement(movement);
+    setFormData({
+      product_id: movement.product_id,
+      type: movement.type,
+      quantity: movement.quantity,
+      reason: movement.reason || '',
+      reference: movement.reference || '',
+      date_mouvement: movement.date_mouvement || ''
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce mouvement ? La quantité du produit sera restaurée.')) {
+      await api.delete(`/movements/${id}`);
+      loadMovements(searchTerm);
+      loadProducts();
+    }
   };
 
   return (
     <div className="movements">
       <div className="page-header">
         <h2>Mouvements de Stock</h2>
-        <button className="btn-primary" onClick={() => setShowForm(true)}>
-          + Enregistrer un Mouvement
-        </button>
+        <div className="header-actions">
+          <form onSubmit={handleSearch} className="search-form">
+            <input 
+              type="text" 
+              placeholder="Rechercher mouvements..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+            <button type="submit" className="btn-search">🔍</button>
+          </form>
+          <button className="btn-primary" onClick={() => { setShowForm(true); setEditingMovement(null); setFormData({ product_id: '', type: 'in', quantity: 0, reason: '', reference: '', date_mouvement: '' }); }}>
+            + Enregistrer un Mouvement
+          </button>
+        </div>
       </div>
 
       {showForm && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Enregistrer un Mouvement de Stock</h3>
+            <h3>{editingMovement ? 'Modifier le Mouvement' : 'Enregistrer un Mouvement de Stock'}</h3>
             <form onSubmit={handleSubmit}>
               <div className="form-grid">
                 <div className="form-group">
@@ -568,6 +812,10 @@ function StockMovements() {
                   <label>Référence</label>
                   <input value={formData.reference} onChange={e => setFormData({...formData, reference: e.target.value})} placeholder="N° BC, N° Facture, etc." />
                 </div>
+                <div className="form-group">
+                  <label>Date du Mouvement</label>
+                  <input type="date" value={formData.date_mouvement} onChange={e => setFormData({...formData, date_mouvement: e.target.value})} />
+                </div>
                 <div className="form-group full-width">
                   <label>Motif</label>
                   <textarea value={formData.reason} onChange={e => setFormData({...formData, reason: e.target.value})} />
@@ -575,7 +823,7 @@ function StockMovements() {
               </div>
               <div className="form-actions">
                 <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Annuler</button>
-                <button type="submit" className="btn-primary">Enregistrer</button>
+                <button type="submit" className="btn-primary">{editingMovement ? 'Mettre à Jour' : 'Enregistrer'}</button>
               </div>
             </form>
           </div>
@@ -585,23 +833,30 @@ function StockMovements() {
       <table className="data-table">
         <thead>
           <tr>
-            <th>Date</th>
+            <th>Date Mouvement</th>
+            <th>Créé le</th>
             <th>Produit</th>
             <th>Type</th>
             <th>Quantité</th>
             <th>Référence</th>
             <th>Motif</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {movements.map(movement => (
             <tr key={movement.id}>
+              <td>{movement.date_mouvement ? new Date(movement.date_mouvement).toLocaleDateString('fr-FR') : '-'}</td>
               <td>{new Date(movement.created_at).toLocaleString('fr-FR')}</td>
               <td>{movement.product_name}</td>
               <td><span className={`badge ${movement.type}`}>{translateType(movement.type)}</span></td>
               <td>{movement.quantity}</td>
               <td>{movement.reference}</td>
               <td>{movement.reason}</td>
+              <td>
+                <button className="btn-icon" onClick={() => handleEdit(movement)} title="Modifier">✏️</button>
+                <button className="btn-icon" onClick={() => handleDelete(movement.id)} title="Supprimer">🗑️</button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -613,6 +868,34 @@ function StockMovements() {
 // Composant Principal
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [user, setUser] = useState(null);
+  const [authMode, setAuthMode] = useState('login');
+
+  useEffect(() => {
+    // Check if user is logged in
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+    setCurrentPage('dashboard');
+  };
+
+  // If not logged in, show login/register
+  if (!user) {
+    if (authMode === 'register') {
+      return <Register onRegister={handleLogin} onSwitchToLogin={() => setAuthMode('login')} />;
+    }
+    return <Login onLogin={handleLogin} onSwitchToRegister={() => setAuthMode('register')} />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {
@@ -631,6 +914,9 @@ function App() {
         <div className="logo">
           <h1>📦 Gestion de Stock</h1>
         </div>
+        <div className="user-info">
+          <span>👤 {user.username}</span>
+        </div>
         <ul className="nav-menu">
           <li className={currentPage === 'dashboard' ? 'active' : ''} onClick={() => setCurrentPage('dashboard')}>
             📊 Tableau de Bord
@@ -648,6 +934,11 @@ function App() {
             🔄 Mouvements
           </li>
         </ul>
+        <div className="logout-section">
+          <button className="btn-logout" onClick={handleLogout}>
+            🚪 Déconnexion
+          </button>
+        </div>
       </nav>
       <main className="main-content">
         {renderPage()}

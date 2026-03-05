@@ -1,14 +1,17 @@
 {
   "name": "gestion-de-stock",
   "version": "1.0.0",
-  "description": "Desktop Stock Management Application",
-  "main": "src/main/main.js",
+  "description": "Stock Management Web Application",
+  "main": "web-server.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:server\"",
     "dev:vite": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "dev:server": "node web-server.js",
+    "dev:electron": "concurrently \"npm run dev:vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "build": "vite build",
-    "start": "electron .",
+    "start": "npm run build && node web-server.js",
+    "start:server": "node web-server.js",
+    "electron": "electron .",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win"
@@ -23,7 +26,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^12.6.2",
+    "pg": "^8.11.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "react": "^19.2.4",
