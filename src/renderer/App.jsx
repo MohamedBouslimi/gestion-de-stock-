@@ -243,7 +243,7 @@ function Dashboard() {
           <p>Stock Faible</p>
         </div>
         <div className="stat-card success">
-          <h3>{stats.totalValue.toFixed(2)} DT</h3>
+          <h3>{parseFloat(stats.totalValue || 0).toFixed(2)} DT</h3>
           <p>Valeur Totale du Stock</p>
         </div>
       </div>
@@ -469,9 +469,9 @@ function Products() {
               <td>{product.sku}</td>
               <td>{product.category_name}</td>
               <td>{product.quantity}</td>
-              <td>{product.price.toFixed(2)} DT</td>
+              <td>{parseFloat(product.price).toFixed(2)} DT</td>
               <td>{product.date_achat ? new Date(product.date_achat).toLocaleDateString('fr-FR') : '-'}</td>
-              <td>{(product.quantity * product.price).toFixed(2)} DT</td>
+              <td>{(product.quantity * parseFloat(product.price)).toFixed(2)} DT</td>
               <td>
                 <button className="btn-icon" onClick={() => handleEdit(product)}>✏️</button>
                 <button className="btn-icon" onClick={() => handleDelete(product.id)}>🗑️</button>
