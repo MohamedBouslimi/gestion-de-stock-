@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 
 // Use relative path for production, full URL for development
-const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : '/api';
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3001/api' : 'https://gestion-de-stock-backend.onrender.com/api';
 
 // Fonctions d'aide API
 const api = {
